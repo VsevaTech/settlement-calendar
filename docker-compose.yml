@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    image: settlement-calendar:latest
+    ports:
+      - "8000:8000"
+    environment:
+      # SQLite lives in the named volume so rules survive a restart.
+      SC_DATABASE_URL: sqlite:////app/data/settlement_calendar.db
+      # The bundled demo dataset is anchored to this date. Remove the line
+      # (or set it empty) to use the real current date with your own data.
+      SC_AS_OF_DATE: "2026-09-17"
+      SC_WEEKEND_DAYS: "6,7"
+    volumes:
+      - settlement-data:/app/data
+
+volumes:
+  settlement-data:
