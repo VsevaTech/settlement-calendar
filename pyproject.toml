@@ -39,3 +39,6 @@ ignore = ["B008"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Put the repository root on sys.path so `pytest` works the same way as
+# `python -m pytest`, whether or not the project is installed.
+pythonpath = ["."]
