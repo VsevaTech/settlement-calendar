@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Upload{% endblock %}
+{% block content %}
+<h1>Upload data</h1>
+
+{% if result %}
+  <div class="banner {% if result.errors and not result.imported and not result.updated %}error{% elif result.errors %}warn{% else %}ok{% endif %}">
+    <strong>{{ result.kind }}:</strong>
+    imported {{ result.imported }}, updated {{ result.updated }}, skipped {{ result.skipped }}.
+    {% if result.errors %}
+      <ul>{% for error in result.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div class="two-col">
+  <form class="card" method="post" action="/upload/payments" enctype="multipart/form-data">
+    <h2>1. Payments</h2>
+    <p class="muted">Required fields: <code>payment_id, provider, payment_date, amount, currency</code>.
+       Column names are detected automatically; if that fails you get a mapping screen.</p>
+    <input type="file" name="file" accept=".csv,.xlsx,.xls,.tsv" required>
+    <button class="button" type="submit">Import payments</button>
+  </form>
+
+  <form class="card" method="post" action="/upload/settlements" enctype="multipart/form-data">
+    <h2>2. Actual settlements <span class="muted">(optional)</span></h2>
+    <p class="muted">Required fields: <code>settlement_id, payment_id, settlement_date, amount, currency</code>.
+       Matching is done on <code>payment_id</code>.</p>
+    <input type="file" name="file" accept=".csv,.xlsx,.xls,.tsv" required>
+    <button class="button" type="submit">Import settlements</button>
+  </form>
+</div>
+
+<form class="card danger-card" method="post" action="/reset"
+      onsubmit="return confirm('Delete all imported payments and settlements?')">
+  <h2>Reset data</h2>
+  <p class="muted">Removes imported payments and settlements. Tick the box to drop provider rules too.</p>
+  <label class="inline"><input type="checkbox" name="include_rules" value="1"> also delete rules</label>
+  <button class="button danger" type="submit">Reset</button>
+</form>
+{% endblock %}

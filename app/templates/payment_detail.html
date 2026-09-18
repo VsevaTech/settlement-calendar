@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ row.payment_id }}{% endblock %}
+{% block content %}
+<p><a href="/">&larr; back to dashboard</a></p>
+<h1>{{ row.payment_id }}</h1>
+
+<div class="card detail">
+  <dl>
+    <div><dt>Provider</dt><dd>{{ row.provider }}</dd></div>
+    <div><dt>Payment date</dt><dd>{{ row.payment_date }} <span class="muted">({{ row.payment_date.strftime('%A') }})</span></dd></div>
+    <div><dt>Amount</dt><dd>{{ row.currency }} {{ row.amount|money }}</dd></div>
+    <div><dt>Settlement rule</dt><dd>{{ row.rule_label }}</dd></div>
+    <div><dt>Expected settlement</dt>
+      <dd>{% if row.expected_settlement_date %}{{ row.expected_settlement_date }}
+        <span class="muted">({{ row.expected_settlement_date.strftime('%A') }})</span>{% else %}-{% endif %}</dd></div>
+    <div><dt>Actual settlement</dt>
+      <dd>{% if row.actual_settlement_date %}{{ row.actual_settlement_date }}
+        <span class="muted">({{ row.actual_settlement_date.strftime('%A') }}, {{ row.settlement_id }})</span>{% else %}<em>missing</em>{% endif %}</dd></div>
+    <div><dt>Status</dt>
+      <dd><span class="pill {{ (row.status.value if row.status else 'NO_RULE')|lower }}">{{ row.status.value if row.status else 'NO RULE' }}</span>
+        {% if row.days_overdue %}<span class="late">+{{ row.days_overdue }} day{{ '' if row.days_overdue == 1 else 's' }}</span>{% endif %}</dd></div>
+    {% if row.amount_mismatch %}
+      <div><dt>Amount received</dt><dd class="warn">{{ row.currency }} {{ row.settled_amount|money }} (differs from payment amount)</dd></div>
+    {% endif %}
+  </dl>
+</div>
+{% endblock %}

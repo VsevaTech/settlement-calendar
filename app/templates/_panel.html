@@ -1,0 +1,41 @@
+<section class="toolbar">
+  <div class="filters">
+    {% for key, label in filters.items() %}
+      <a class="chip {% if key == selected_status %}active{% endif %} chip-{{ key }}"
+         href="/?status={{ key }}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}{% if selected_currency %}&currency={{ selected_currency }}{% endif %}"
+         hx-get="/partials/panel?status={{ key }}{% if selected_provider %}&provider={{ selected_provider }}{% endif %}{% if selected_currency %}&currency={{ selected_currency }}{% endif %}"
+         hx-target="#panel" hx-swap="innerHTML" hx-push-url="true">
+        {{ label }}
+        {% if key == 'overdue' and counts['OVERDUE'] %}<b>{{ counts['OVERDUE'] }}</b>
+        {% elif key == 'due_today' and counts['DUE_TODAY'] %}<b>{{ counts['DUE_TODAY'] }}</b>
+        {% elif key == 'settled_late' and counts['SETTLED_LATE'] %}<b>{{ counts['SETTLED_LATE'] }}</b>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+  <form class="inline" method="get" action="/"
+        hx-get="/partials/panel" hx-target="#panel" hx-swap="innerHTML"
+        hx-push-url="true" hx-trigger="change">
+    <input type="hidden" name="status" value="{{ selected_status }}">
+    <select name="provider">
+      <option value="">All providers</option>
+      {% for provider in providers %}
+        <option value="{{ provider }}" {% if provider == selected_provider %}selected{% endif %}>{{ provider }}</option>
+      {% endfor %}
+    </select>
+    <select name="currency">
+      <option value="">All currencies</option>
+      {% for currency in currencies %}
+        <option value="{{ currency }}" {% if currency == selected_currency %}selected{% endif %}>{{ currency }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button class="button ghost" type="submit">Apply</button></noscript>
+  </form>
+  <div class="exports">
+    <a class="button danger" href="/export/overdue.csv">Export overdue.csv</a>
+    <a class="button ghost" href="/export/all.xlsx">Export all.xlsx</a>
+  </div>
+</section>
+
+<p class="rowcount">{{ rows|length }} of {{ total_rows }} payments</p>
+{% include "_table.html" %}

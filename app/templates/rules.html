@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Settlement rules{% endblock %}
+{% block content %}
+<h1>Settlement rules</h1>
+<p class="muted">One rule per provider. Rules are stored in SQLite, so you configure them once.</p>
+
+{% if message %}<div class="banner ok">{{ message }}</div>{% endif %}
+{% if error %}<div class="banner error">{{ error }}</div>{% endif %}
+
+<form class="card form-row" method="post" action="/rules">
+  <label>Provider
+    <input name="provider" list="known-providers" placeholder="PSP_A" required>
+    <datalist id="known-providers">
+      {% for provider in providers %}<option value="{{ provider }}">{% endfor %}
+    </datalist>
+  </label>
+  <label>T+
+    <input name="offset_days" type="number" min="0" max="365" value="2" required>
+  </label>
+  <label>Mode
+    <select name="rule_type">
+      {% for rule_type in rule_types %}<option value="{{ rule_type }}">{{ rule_type.replace('_', ' ').lower() }}</option>{% endfor %}
+    </select>
+  </label>
+  <button class="button" type="submit">Save rule</button>
+</form>
+
+<table class="grid">
+  <thead><tr><th>Provider</th><th>Rule</th><th>Mode</th><th></th></tr></thead>
+  <tbody>
+  {% for rule in rules %}
+    <tr>
+      <td><strong>{{ rule.provider }}</strong></td>
+      <td>{{ rule.label }}</td>
+      <td class="muted">{{ rule.rule_type.value }}</td>
+      <td class="num">
+        <form method="post" action="/rules/delete" class="inline">
+          <input type="hidden" name="provider" value="{{ rule.provider }}">
+          <button class="link-button" type="submit">remove</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4" class="empty">No rules configured yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Calendar - Settlement Calendar{% endblock %}
+{% block content %}
+<h1>Expected cash flow by settlement date</h1>
+<p class="muted">Grouped by expected settlement date and provider. Amounts are never mixed across currencies.</p>
+
+{% if not days %}
+  <section class="empty-state">
+    <p>Nothing scheduled yet. <a href="/upload">Upload payments</a> and configure rules first.</p>
+  </section>
+{% endif %}
+
+<div class="calendar">
+  {% for day in days %}
+    <section class="day {% if day.is_today %}today{% elif day.is_past %}past{% endif %}">
+      <header>
+        <h2>{{ day.day.strftime('%d %b') }}</h2>
+        <span class="dow">{{ day.day.strftime('%a') }}</span>
+        {% if day.is_today %}<span class="pill due_today">today</span>{% endif %}
+      </header>
+      {% for cell in day.cells %}
+        <div class="cell">
+          <div class="cell-head"><strong>{{ cell.provider }}</strong><span class="muted">{{ cell.count }} payment{{ '' if cell.count == 1 else 's' }}</span></div>
+          <div class="cell-line">{{ cell.currency }} {{ cell.expected|money }} <span class="muted">expected</span></div>
+          {% if cell.received > 0 %}
+            <div class="cell-line ok">{{ cell.currency }} {{ cell.received|money }} <span class="muted">received</span></div>
+          {% endif %}
+          {% if cell.outstanding > 0 %}
+            <div class="cell-line {% if day.is_past %}danger{% else %}due{% endif %}">
+              {{ cell.currency }} {{ cell.outstanding|money }}
+              <span class="muted">{% if day.is_past %}overdue{% elif day.is_today %}due today{% else %}outstanding{% endif %}</span>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Settlement Calendar{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <!-- HTMX only enhances the dashboard filters; every page works without it. -->
+  <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
+          integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+          crossorigin="anonymous" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">
+    <span class="brand-mark">SC</span>
+    <span>Settlement&nbsp;Calendar</span>
+  </a>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/calendar">Calendar</a>
+    <a href="/rules">Rules</a>
+    <a href="/upload">Upload</a>
+  </nav>
+  <div class="asof" title="Date used for status calculation">
+    as of <strong>{{ as_of }}</strong>{% if as_of_pinned %} <span class="pin" title="Pinned by SC_AS_OF_DATE">pinned</span>{% endif %}
+  </div>
+</header>
+
+<main>
+  {% if missing_rules %}
+    <div class="banner warn">
+      No settlement rule for: {% for provider in missing_rules %}<code>{{ provider }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+      <a href="/rules">Configure rules</a> to calculate expected dates.
+    </div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+<footer>
+  Settlement Calendar v{{ app_version }} &mdash; business days exclude weekends only; bank holidays are not modelled.
+  This is not an accounting system and does not replace your PSP&rsquo;s reconciliation reports.
+</footer>
+</body>
+</html>

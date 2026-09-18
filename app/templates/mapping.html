@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Map columns{% endblock %}
+{% block content %}
+<h1>Map your columns</h1>
+<p class="muted">Some columns could not be detected automatically. Tell us which column holds which field.</p>
+
+{% if result.errors %}
+  <div class="banner warn"><ul>{% for error in result.errors %}<li>{{ error }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<form class="card" method="post" action="/mapping/{{ result.mapping_token }}">
+  {% for field in fields %}
+    <label class="map-row">
+      <span>{{ field }}</span>
+      <select name="{{ field }}" required>
+        <option value="">-- choose column --</option>
+        {% for column in result.available_columns %}
+          <option value="{{ column }}" {% if result.detected_columns.get(field) == column %}selected{% endif %}>{{ column }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  {% endfor %}
+  <button class="button" type="submit">Import with this mapping</button>
+</form>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% if total_rows == 0 %}
+  <section class="empty-state">
+    <h1>Nothing to reconcile yet</h1>
+    <p>Upload <code>payments.csv</code> (or <code>.xlsx</code>), configure a settlement rule per provider,
+       then optionally upload the actual settlements you received.</p>
+    <a class="button" href="/upload">Upload payments</a>
+  </section>
+{% else %}
+
+<section class="totals">
+  {% for total in totals %}
+    <article class="currency-card">
+      <h2>{{ total.currency }}</h2>
+      <dl>
+        <div><dt>Expected today</dt><dd>{{ total.expected_today|money }}</dd></div>
+        <div><dt>Received today</dt><dd class="ok">{{ total.received_today|money }}</dd></div>
+        <div><dt>Due today</dt><dd class="due">{{ total.due_today|money }}<small>{{ total.due_today_count }}</small></dd></div>
+        <div class="danger-row"><dt>Overdue</dt><dd class="danger">{{ total.overdue|money }}<small>{{ total.overdue_count }}</small></dd></div>
+        <div><dt>Upcoming</dt><dd>{{ total.upcoming|money }}</dd></div>
+        <div><dt>Settled late</dt><dd class="warn">{{ total.settled_late|money }}<small>{{ total.settled_late_count }}</small></dd></div>
+      </dl>
+    </article>
+  {% endfor %}
+</section>
+
+<div id="panel">
+  {% include "_panel.html" %}
+</div>
+{% endif %}
+{% endblock %}

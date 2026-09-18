@@ -1,0 +1,35 @@
+<table class="grid">
+  <thead>
+  <tr>
+    <th>Payment</th><th>Provider</th><th>Payment Date</th>
+    <th class="num">Amount</th><th>Currency</th><th>Rule</th>
+    <th>Expected Date</th><th>Actual Date</th><th>Status</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    <tr class="status-{{ (row.status.value if row.status else 'NO_RULE')|lower }}">
+      <td><a href="/payments/{{ row.payment_id }}">{{ row.payment_id }}</a></td>
+      <td>{{ row.provider }}</td>
+      <td>{{ row.payment_date }}</td>
+      <td class="num">{{ row.amount|money }}</td>
+      <td>{{ row.currency }}</td>
+      <td class="muted">{{ row.rule_label }}</td>
+      <td>{{ row.expected_settlement_date or '-' }}</td>
+      <td>{{ row.actual_settlement_date or '-' }}</td>
+      <td>
+        <span class="pill {{ (row.status.value if row.status else 'NO_RULE')|lower }}">
+          {{ row.status.value if row.status else 'NO RULE' }}
+        </span>
+        {% if row.status and row.status.value == 'OVERDUE' %}
+          <span class="late">+{{ row.days_overdue }}d</span>
+        {% elif row.status and row.status.value == 'SETTLED_LATE' %}
+          <span class="late">+{{ row.days_overdue }}d</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="empty">No payments match this filter.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
