@@ -1,0 +1,66 @@
+name: assets
+
+# Regenerates the deterministic demo dataset and the README screenshots from the
+# running application, and commits them when they differ from what is in the repo.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: assets-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,screenshots]"
+
+      - name: Regenerate the demo dataset
+        run: python -m app.demo.generate --as-of 2026-09-17 --out demo-data
+
+      - name: Install Chromium
+        id: browser
+        continue-on-error: true
+        run: python -m playwright install --with-deps chromium
+
+      - name: Capture screenshots
+        if: steps.browser.outcome == 'success'
+        continue-on-error: true
+        env:
+          SC_AS_OF_DATE: "2026-09-17"
+          SC_DATABASE_URL: "sqlite:////tmp/screenshots.db"
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/health > /dev/null && break
+            sleep 2
+          done
+          python scripts/capture_screenshots.py --base-url http://127.0.0.1:8000
+
+      - name: Commit refreshed assets
+        run: |
+          if [ -z "$(git status --porcelain demo-data docs)" ]; then
+            echo "assets are already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add demo-data docs
+          git commit -m "chore: regenerate demo dataset and screenshots [skip-assets]"
+          git push
