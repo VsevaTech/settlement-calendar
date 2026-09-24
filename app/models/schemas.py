@@ -7,13 +7,18 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.services.settlement_calendar import RuleType, SettlementStatus
+from app.services.settlement_calendar import (
+    RuleType,
+    SettlementExplanation,
+    SettlementStatus,
+)
 
 
 class ProviderRuleInput(BaseModel):
     provider: str
     offset_days: int
     rule_type: RuleType
+    calendar_code: str | None = None
 
     @field_validator("provider")
     @classmethod
@@ -42,13 +47,24 @@ class PaymentRow(BaseModel):
     amount: Decimal
     currency: str
     rule_label: str
+    calendar_code: str | None = None
+    calendar_name: str | None = None
     expected_settlement_date: date | None
+    explanation: SettlementExplanation | None = None
     settlement_id: str | None = None
     actual_settlement_date: date | None = None
     settled_amount: Decimal | None = None
     status: SettlementStatus | None = None
     days_overdue: int = 0
     has_rule: bool = True
+
+    @property
+    def explanation_text(self) -> str:
+        return self.explanation.summary if self.explanation is not None else ""
+
+    @property
+    def holiday_adjusted(self) -> bool:
+        return self.explanation is not None and self.explanation.holiday_adjusted
 
     @property
     def amount_mismatch(self) -> bool:

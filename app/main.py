@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -21,8 +22,10 @@ from app import __version__
 from app.config import get_settings
 from app.db import get_db, init_db
 from app.models.schemas import ImportResult
+from app.services import calendar_store
 from app.services import reconciliation as recon
 from app.services.export_service import all_rows_xlsx, overdue_csv
+from app.services.holiday_calendars import holidays_to_csv, parse_holiday_csv
 from app.services.import_service import (
     PAYMENT_FIELDS,
     SETTLEMENT_FIELDS,
@@ -33,7 +36,12 @@ from app.services.import_service import (
     peek_pending,
     pop_pending,
 )
-from app.services.settlement_calendar import RuleType, SettlementCalendarError, SettlementStatus
+from app.services.settlement_calendar import (
+    RuleType,
+    SettlementCalendarError,
+    SettlementStatus,
+    parse_date,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -111,6 +119,7 @@ def _dashboard_context(
         providers=recon.known_providers(db),
         currencies=sorted({row.currency for row in rows}),
         missing_rules=recon.providers_without_rules(db),
+        calendar_warnings=recon.calendar_warnings(rows),
     )
 
 
@@ -164,13 +173,15 @@ def calendar(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 def rules_page(
     request: Request, message: str = "", error: str = "", db: Session = Depends(get_db)
 ) -> HTMLResponse:
-    stored = recon.load_rules(db, weekend_days())
+    calendars = calendar_store.load_calendars(db)
+    stored = recon.load_rules(db, weekend_days(), calendars)
     return templates.TemplateResponse(
         request,
         "rules.html",
         _context(
             request,
             rules=[stored[key] for key in sorted(stored)],
+            calendars=list(calendars.values()),
             providers=recon.known_providers(db),
             missing_rules=recon.providers_without_rules(db),
             rule_types=[rule_type.value for rule_type in RuleType],
@@ -185,6 +196,7 @@ def save_rule(
     provider: str = Form(...),
     offset_days: int = Form(...),
     rule_type: str = Form(...),
+    calendar_code: str = Form(default=""),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
     try:
@@ -193,16 +205,171 @@ def save_rule(
             raise SettlementCalendarError("offset must be between 0 and 365")
         if not provider.strip():
             raise SettlementCalendarError("provider must not be empty")
+        recon.upsert_rule(db, provider, offset_days, parsed_type, calendar_code or None)
     except (ValueError, SettlementCalendarError) as exc:
-        return RedirectResponse(f"/rules?error={exc}", status_code=303)
-    recon.upsert_rule(db, provider, offset_days, parsed_type)
-    return RedirectResponse(f"/rules?message=Rule+saved+for+{provider.strip()}", status_code=303)
+        return RedirectResponse(f"/rules?error={quote_plus(str(exc))}", status_code=303)
+    return RedirectResponse(
+        f"/rules?message={quote_plus('Rule saved for ' + provider.strip())}", status_code=303
+    )
 
 
 @app.post("/rules/delete")
 def remove_rule(provider: str = Form(...), db: Session = Depends(get_db)) -> RedirectResponse:
     recon.delete_rule(db, provider)
     return RedirectResponse("/rules?message=Rule+removed", status_code=303)
+
+
+# --- holiday calendars --------------------------------------------------------
+
+
+def _calendar_redirect(code: str, message: str = "", error: str = "") -> RedirectResponse:
+    target = f"/calendars/{quote_plus(code)}" if code else "/calendars"
+    query = f"?message={quote_plus(message)}" if message else ""
+    if error:
+        query = f"?error={quote_plus(error)}"
+    return RedirectResponse(target + query, status_code=303)
+
+
+@app.get("/calendars", response_class=HTMLResponse)
+def calendars_page(
+    request: Request, message: str = "", error: str = "", db: Session = Depends(get_db)
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "calendars.html",
+        _context(
+            request,
+            calendars=list(calendar_store.load_calendars(db).values()),
+            usage=calendar_store.calendar_usage(db),
+            missing_rules=recon.providers_without_rules(db),
+            message=message,
+            error=error,
+        ),
+    )
+
+
+@app.post("/calendars")
+def create_calendar(
+    code: str = Form(...),
+    name: str = Form(...),
+    weekend_days: str = Form(default=""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    try:
+        record = calendar_store.create_calendar(db, code, name, weekend_days)
+    except SettlementCalendarError as exc:
+        return _calendar_redirect("", error=str(exc))
+    return _calendar_redirect(record.code, message="Calendar created - now add its holidays")
+
+
+@app.get("/calendars/{code}", response_class=HTMLResponse)
+def calendar_detail(
+    request: Request,
+    code: str,
+    message: str = "",
+    error: str = "",
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    calendar = calendar_store.get_calendar(db, code)
+    if calendar is None:
+        raise HTTPException(status_code=404, detail="calendar not found")
+    by_year: dict[int, list[tuple[date, str]]] = {}
+    for day, name in sorted(calendar.holidays.items()):
+        by_year.setdefault(day.year, []).append((day, name))
+    return templates.TemplateResponse(
+        request,
+        "calendar_detail.html",
+        _context(
+            request,
+            calendar=calendar,
+            by_year=by_year,
+            bundled=calendar_store.is_bundled(db, code),
+            used_by=calendar_store.calendar_usage(db).get(code, []),
+            missing_rules=recon.providers_without_rules(db),
+            message=message,
+            error=error,
+        ),
+    )
+
+
+@app.post("/calendars/{code}/holidays")
+def add_holiday(
+    code: str,
+    holiday_date: str = Form(...),
+    name: str = Form(default=""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    try:
+        day = parse_date(holiday_date)
+        calendar_store.upsert_holidays(db, code, {day: name})
+    except SettlementCalendarError as exc:
+        return _calendar_redirect(code, error=str(exc))
+    return _calendar_redirect(code, message=f"{day.isoformat()} saved")
+
+
+@app.post("/calendars/{code}/holidays/delete")
+def remove_holiday(
+    code: str, holiday_date: str = Form(...), db: Session = Depends(get_db)
+) -> RedirectResponse:
+    try:
+        day = parse_date(holiday_date)
+        calendar_store.delete_holiday(db, code, day)
+    except SettlementCalendarError as exc:
+        return _calendar_redirect(code, error=str(exc))
+    return _calendar_redirect(code, message=f"{day.isoformat()} removed")
+
+
+@app.post("/calendars/{code}/upload")
+async def upload_holidays(
+    code: str, file: UploadFile = File(...), db: Session = Depends(get_db)
+) -> RedirectResponse:
+    payload = await file.read()
+    try:
+        holidays, errors = parse_holiday_csv(payload)
+        added, updated = calendar_store.upsert_holidays(db, code, holidays)
+    except SettlementCalendarError as exc:
+        return _calendar_redirect(code, error=str(exc))
+    message = f"{added} added, {updated} renamed"
+    if errors:
+        message += f"; {len(errors)} skipped ({errors[0]}{' ...' if len(errors) > 1 else ''})"
+    return _calendar_redirect(code, message=message)
+
+
+@app.post("/calendars/{code}/delete")
+def remove_calendar(code: str, db: Session = Depends(get_db)) -> RedirectResponse:
+    try:
+        calendar_store.delete_calendar(db, code)
+    except SettlementCalendarError as exc:
+        return _calendar_redirect(code, error=str(exc))
+    return _calendar_redirect("", message=f"Calendar {code} removed")
+
+
+@app.get("/calendars/{code}/holidays.csv")
+def export_holidays(code: str, db: Session = Depends(get_db)) -> Response:
+    calendar = calendar_store.get_calendar(db, code)
+    if calendar is None:
+        raise HTTPException(status_code=404, detail="calendar not found")
+    return Response(
+        content=holidays_to_csv(calendar),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="holidays-{calendar.code}.csv"'},
+    )
+
+
+@app.get("/api/calendars")
+def api_calendars(db: Session = Depends(get_db)) -> list[dict[str, object]]:
+    usage = calendar_store.calendar_usage(db)
+    return [
+        {
+            "code": calendar.code,
+            "name": calendar.name,
+            "weekend_days": sorted(calendar.weekend_days) if calendar.weekend_days else None,
+            "holidays": {day.isoformat(): name for day, name in calendar.holidays.items()},
+            "covered_years": sorted(calendar.covered_years),
+            "used_by": usage.get(calendar.code, []),
+        }
+        for calendar in calendar_store.load_calendars(db).values()
+    ]
 
 
 @app.get("/upload", response_class=HTMLResponse)

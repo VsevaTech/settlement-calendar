@@ -159,3 +159,12 @@ input, select { padding: 7px 10px; border: 1px solid var(--line); border-radius:
   .exports { margin-left: 0; }
   .grid { display: block; overflow-x: auto; }
 }
+
+/* holiday calendars */
+.tag { display: inline-block; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 600;
+       background: var(--line); color: #374151; vertical-align: 1px; }
+.tag.holiday { background: #ede9fe; color: #5b21b6; }
+.explanation code { font-size: 14px; background: #f1f5f9; padding: 6px 10px; border-radius: 8px; display: inline-block; }
+.steps tr.step-skipped td { color: var(--muted); background: #fafafa; }
+.steps tr.step-rolled td { background: var(--due-bg); }
+.danger-zone { margin-top: 24px; }

@@ -10,6 +10,10 @@
   </section>
 {% else %}
 
+{% for warning in calendar_warnings %}
+  <div class="banner warn">{{ warning }}. <a href="/calendars">Add the missing dates</a> so expected settlement dates stay correct.</div>
+{% endfor %}
+
 <section class="totals">
   {% for total in totals %}
     <article class="currency-card">

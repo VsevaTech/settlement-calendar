@@ -41,7 +41,7 @@ def db_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Sess
 def demo_rules(db_session: Session) -> Session:
     from app.services.reconciliation import upsert_rule
 
-    upsert_rule(db_session, "PSP_A", 2, RuleType.BUSINESS_DAYS)
+    upsert_rule(db_session, "PSP_A", 2, RuleType.BUSINESS_DAYS, calendar_code="AE")
     upsert_rule(db_session, "PSP_B", 1, RuleType.BUSINESS_DAYS)
     upsert_rule(db_session, "PSP_C", 3, RuleType.CALENDAR_DAYS)
     return db_session

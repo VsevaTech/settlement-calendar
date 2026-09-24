@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
+from app.services.holiday_calendars import bundled_calendars
 from app.services.settlement_calendar import (
     RuleType,
     SettlementRule,
@@ -32,8 +33,13 @@ TARGET_OVERDUE = 12
 TARGET_DUE_TODAY = 7
 TARGET_SETTLED_LATE = 5
 
+# PSP_A is a UAE acquirer: T+2 business days on the bundled UAE banking
+# calendar, so the Prophet's Birthday holiday (Friday 28 Aug 2026) pushes its
+# payouts. PSP_B and PSP_C keep "weekends only" to show the contrast.
+_CALENDARS = bundled_calendars()
+
 DEMO_RULES: tuple[SettlementRule, ...] = (
-    SettlementRule("PSP_A", 2, RuleType.BUSINESS_DAYS),
+    SettlementRule("PSP_A", 2, RuleType.BUSINESS_DAYS, calendar=_CALENDARS["AE"]),
     SettlementRule("PSP_B", 1, RuleType.BUSINESS_DAYS),
     SettlementRule("PSP_C", 3, RuleType.CALENDAR_DAYS),
 )

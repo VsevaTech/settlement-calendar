@@ -10,7 +10,17 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
@@ -49,9 +59,43 @@ class ProviderRule(Base):
     provider: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     offset_days: Mapped[int] = mapped_column(Integer, default=0)
     rule_type: Mapped[str] = mapped_column(String(16), default=RuleType.BUSINESS_DAYS.value)
+    # Optional banking calendar (HolidayCalendarRecord.code). NULL = weekends only.
+    calendar_code: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class HolidayCalendarRecord(Base):
+    """A banking calendar that provider rules can reference by ``code``."""
+
+    __tablename__ = "holiday_calendars"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    # "6,7" or "" - empty means "inherit SC_WEEKEND_DAYS".
+    weekend_days: Mapped[str] = mapped_column(String(32), default="")
+    source: Mapped[str] = mapped_column(Text, default="")
+    bundled: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class HolidayRecord(Base):
+    """One non-business date in a calendar."""
+
+    __tablename__ = "holidays"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    calendar_id: Mapped[int] = mapped_column(
+        ForeignKey("holiday_calendars.id", ondelete="CASCADE"), index=True
+    )
+    holiday_date: Mapped[date] = mapped_column(Date, index=True)
+    name: Mapped[str] = mapped_column(String(128), default="")
+
+    __table_args__ = (UniqueConstraint("calendar_id", "holiday_date", name="uq_calendar_day"),)
 
 
 class Payment(Base):

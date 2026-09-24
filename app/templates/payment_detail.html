@@ -9,7 +9,7 @@
     <div><dt>Provider</dt><dd>{{ row.provider }}</dd></div>
     <div><dt>Payment date</dt><dd>{{ row.payment_date }} <span class="muted">({{ row.payment_date.strftime('%A') }})</span></dd></div>
     <div><dt>Amount</dt><dd>{{ row.currency }} {{ row.amount|money }}</dd></div>
-    <div><dt>Settlement rule</dt><dd>{{ row.rule_label }}</dd></div>
+    <div><dt>Settlement rule</dt><dd>{{ row.rule_label }}{% if row.calendar_name %} + <a href="/calendars/{{ row.calendar_code }}">{{ row.calendar_name }}</a>{% else %} <span class="muted">(weekends only, no holiday calendar)</span>{% endif %}</dd></div>
     <div><dt>Expected settlement</dt>
       <dd>{% if row.expected_settlement_date %}{{ row.expected_settlement_date }}
         <span class="muted">({{ row.expected_settlement_date.strftime('%A') }})</span>{% else %}-{% endif %}</dd></div>
@@ -24,4 +24,25 @@
     {% endif %}
   </dl>
 </div>
+
+{% if row.explanation %}
+<h2>How the expected date was calculated</h2>
+<div class="card">
+  <p class="explanation"><code>{{ row.explanation.summary }}</code></p>
+  {% for warning in row.explanation.warnings %}<div class="banner warn">{{ warning }}</div>{% endfor %}
+  <table class="grid steps">
+    <thead><tr><th>Date</th><th>Day</th><th>Step</th><th>Note</th></tr></thead>
+    <tbody>
+    {% for step in row.explanation.steps %}
+      <tr class="step-{{ step.label|lower if step.label in ('skipped', 'rolled') else 'count' }}">
+        <td>{{ step.day }}</td>
+        <td class="muted">{{ step.day.strftime('%a') }}</td>
+        <td>{% if step.label == 'skipped' %}<span class="pill no_rule">skipped</span>{% elif step.label == 'rolled' %}<span class="pill due_today">rolled</span>{% else %}<strong>{{ step.label }}</strong>{% endif %}</td>
+        <td>{{ step.note }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 {% endblock %}
