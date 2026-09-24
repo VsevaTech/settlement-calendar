@@ -14,8 +14,8 @@
       <td>{{ row.payment_date }}</td>
       <td class="num">{{ row.amount|money }}</td>
       <td>{{ row.currency }}</td>
-      <td class="muted">{{ row.rule_label }}</td>
-      <td>{{ row.expected_settlement_date or '-' }}</td>
+      <td class="muted">{{ row.rule_label }}{% if row.calendar_code %} <span class="tag" title="{{ row.calendar_name }}">{{ row.calendar_code }}</span>{% endif %}</td>
+      <td title="{{ row.explanation_text }}">{{ row.expected_settlement_date or '-' }}{% if row.holiday_adjusted %} <span class="tag holiday" title="{{ row.explanation_text }}">holiday</span>{% endif %}</td>
       <td>{{ row.actual_settlement_date or '-' }}</td>
       <td>
         <span class="pill {{ (row.status.value if row.status else 'NO_RULE')|lower }}">

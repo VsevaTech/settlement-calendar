@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Holiday calendars - Settlement Calendar{% endblock %}
+{% block content %}
+<h1>Holiday calendars</h1>
+<p class="muted">A calendar is a list of bank holidays (plus, optionally, its own weekend). Assign one to a provider on the
+  <a href="/rules">Rules</a> page: <code>PSP_A &rarr; T+2 business days + UAE banking calendar</code>.
+  Bundled calendars are seeded from <code>app/calendars/*.toml</code> on first start; edits made here are kept.</p>
+
+{% if message %}<div class="banner ok">{{ message }}</div>{% endif %}
+{% if error %}<div class="banner error">{{ error }}</div>{% endif %}
+
+<table class="grid">
+  <thead><tr><th>Code</th><th>Name</th><th>Weekend</th><th class="num">Holidays</th><th>Years covered</th><th>Used by</th></tr></thead>
+  <tbody>
+  {% for calendar in calendars %}
+    <tr>
+      <td><a href="/calendars/{{ calendar.code }}"><strong>{{ calendar.code }}</strong></a></td>
+      <td>{{ calendar.name }}</td>
+      <td class="muted">{% if calendar.weekend_days %}{{ calendar.weekend_days|sort|join(',') }}{% else %}inherits SC_WEEKEND_DAYS{% endif %}</td>
+      <td class="num">{{ calendar.holidays|length }}</td>
+      <td>{{ calendar.covered_years|sort|join(', ') or '-' }}</td>
+      <td>{% for provider in usage.get(calendar.code, []) %}<code>{{ provider }}</code>{% if not loop.last %}, {% endif %}{% else %}<span class="muted">-</span>{% endfor %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="empty">No calendars yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>New calendar</h2>
+<form class="card form-row" method="post" action="/calendars">
+  <label>Code <input name="code" placeholder="IL" maxlength="32" required></label>
+  <label>Name <input name="name" placeholder="Bank of Israel calendar" maxlength="128" required></label>
+  <label>Weekend (ISO days, optional) <input name="weekend_days" placeholder="5,6"></label>
+  <button class="button" type="submit">Create</button>
+</form>
+{% endblock %}

@@ -20,6 +20,7 @@
     <a href="/">Dashboard</a>
     <a href="/calendar">Calendar</a>
     <a href="/rules">Rules</a>
+    <a href="/calendars">Holidays</a>
     <a href="/upload">Upload</a>
   </nav>
   <div class="asof" title="Date used for status calculation">
@@ -38,7 +39,8 @@
 </main>
 
 <footer>
-  Settlement Calendar v{{ app_version }} &mdash; business days exclude weekends only; bank holidays are not modelled.
+  Settlement Calendar v{{ app_version }} &mdash; business days skip weekends and, for providers with a holiday calendar, its bank holidays.
+  Holiday data is only as good as the calendar - confirm it against your acquirer.
   This is not an accounting system and does not replace your PSP&rsquo;s reconciliation reports.
 </footer>
 </body>

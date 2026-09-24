@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ calendar.name }} - Settlement Calendar{% endblock %}
+{% block content %}
+<p><a href="/calendars">&larr; all calendars</a></p>
+<h1>{{ calendar.name }} <span class="muted">{{ calendar.code }}</span></h1>
+
+{% if message %}<div class="banner ok">{{ message }}</div>{% endif %}
+{% if error %}<div class="banner error">{{ error }}</div>{% endif %}
+
+<div class="card detail">
+  <dl>
+    <div><dt>Weekend</dt><dd>{% if calendar.weekend_days %}ISO {{ calendar.weekend_days|sort|join(', ') }}{% else %}inherits <code>SC_WEEKEND_DAYS</code>{% endif %}</dd></div>
+    <div><dt>Years covered</dt><dd>{{ calendar.covered_years|sort|join(', ') or 'none - add holidays below' }}
+      <span class="muted">&mdash; outside these years only weekends are skipped, and a warning is shown.</span></dd></div>
+    <div><dt>Used by</dt><dd>{% for provider in used_by %}<code>{{ provider }}</code>{% if not loop.last %}, {% endif %}{% else %}<span class="muted">no provider rule yet</span>{% endfor %}</dd></div>
+    {% if calendar.source %}<div><dt>Source</dt><dd>{{ calendar.source }}{% if bundled %} <span class="tag">bundled</span>{% endif %}</dd></div>{% endif %}
+  </dl>
+</div>
+
+<div class="two-col">
+  <form class="card form-row" method="post" action="/calendars/{{ calendar.code }}/holidays">
+    <label>Date <input name="holiday_date" type="date" required></label>
+    <label>Name <input name="name" placeholder="Bank holiday" maxlength="128"></label>
+    <button class="button" type="submit">Add holiday</button>
+  </form>
+  <form class="card form-row" method="post" action="/calendars/{{ calendar.code }}/upload" enctype="multipart/form-data">
+    <label>Upload CSV with columns date,name <input name="file" type="file" accept=".csv,text/csv" required></label>
+    <button class="button ghost" type="submit">Import</button>
+    <a class="button ghost" href="/calendars/{{ calendar.code }}/holidays.csv">Download CSV</a>
+  </form>
+</div>
+
+{% for year, items in by_year.items() %}
+  <h2>{{ year }}</h2>
+  <table class="grid">
+    <thead><tr><th>Date</th><th>Day</th><th>Holiday</th><th></th></tr></thead>
+    <tbody>
+    {% for day, name in items %}
+      <tr>
+        <td>{{ day }}</td>
+        <td class="muted">{{ day.strftime('%a') }}{% if calendar.weekend_days and day.isoweekday() in calendar.weekend_days %} <span class="tag">weekend</span>{% endif %}</td>
+        <td>{{ name or '-' }}</td>
+        <td class="num">
+          <form method="post" action="/calendars/{{ calendar.code }}/holidays/delete" class="inline">
+            <input type="hidden" name="holiday_date" value="{{ day }}">
+            <button class="link-button" type="submit">remove</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <section class="empty-state"><p>No holidays in this calendar yet.</p></section>
+{% endfor %}
+
+{% if not used_by %}
+<form method="post" action="/calendars/{{ calendar.code }}/delete" class="danger-zone">
+  <button class="link-button" type="submit">Delete this calendar</button>
+</form>
+{% endif %}
+{% endblock %}
