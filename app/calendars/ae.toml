@@ -1,0 +1,66 @@
+# UAE banking calendar.
+#
+# UAE banks and the UAE Funds Transfer System do not settle on official public
+# holidays. Islamic holidays follow moon sighting and are often *transferred* by
+# Cabinet decision to a Friday or a Monday, so the dates below are the officially
+# announced (observed) dates, not the astronomical Hijri dates.
+#
+# Always confirm against your acquirer's own settlement calendar before relying
+# on it. Add or correct dates on the Holidays page or by uploading a CSV.
+
+code = "AE"
+name = "UAE banking calendar"
+weekend_days = [6, 7]  # Saturday + Sunday since January 2022
+source = "Official UAE announcements (MoHRE / UAE Cabinet), 2026; National Day provisional"
+
+[[holidays]]
+date = 2026-01-01
+name = "New Year's Day"
+
+[[holidays]]
+date = 2026-03-19
+name = "Eid Al Fitr holiday"
+
+[[holidays]]
+date = 2026-03-20
+name = "Eid Al Fitr"
+
+[[holidays]]
+date = 2026-03-21
+name = "Eid Al Fitr holiday"
+
+[[holidays]]
+date = 2026-03-22
+name = "Eid Al Fitr holiday"
+
+[[holidays]]
+date = 2026-05-26
+name = "Arafat Day"
+
+[[holidays]]
+date = 2026-05-27
+name = "Eid Al Adha"
+
+[[holidays]]
+date = 2026-05-28
+name = "Eid Al Adha holiday"
+
+[[holidays]]
+date = 2026-05-29
+name = "Eid Al Adha holiday"
+
+[[holidays]]
+date = 2026-06-15
+name = "Hijri New Year"
+
+[[holidays]]
+date = 2026-08-28
+name = "Prophet's Birthday"
+
+[[holidays]]
+date = 2026-12-02
+name = "National Day (provisional)"
+
+[[holidays]]
+date = 2026-12-03
+name = "National Day (provisional)"

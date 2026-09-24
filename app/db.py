@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -38,9 +38,33 @@ def get_session_factory() -> sessionmaker[Session]:
     return _session_factory
 
 
+def _migrate(engine: Engine) -> None:
+    """Additive, idempotent schema changes for databases created by v0.1.
+
+    ``create_all`` adds new tables but never new columns, so the one column
+    added to an existing table is handled here. No data is rewritten.
+    """
+    columns = {column["name"] for column in inspect(engine).get_columns("provider_rules")}
+    if "calendar_code" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE provider_rules ADD COLUMN calendar_code VARCHAR(32)")
+            )
+
+
 def init_db() -> None:
-    """Create tables if they are missing (safe on an empty database)."""
-    Base.metadata.create_all(bind=get_engine())
+    """Create/upgrade the schema and seed the bundled holiday calendars.
+
+    Safe on an empty database and on every restart: bundled calendars are only
+    inserted when their code is missing, so edits made in the UI survive.
+    """
+    from app.services.calendar_store import seed_bundled_calendars
+
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+    _migrate(engine)
+    with Session(engine) as session:
+        seed_bundled_calendars(session)
 
 
 def reset_engine() -> None:
