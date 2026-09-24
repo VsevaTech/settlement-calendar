@@ -12,13 +12,16 @@ from sqlalchemy.orm import Session
 
 from app.models.db_models import Payment, ProviderRule, Settlement
 from app.models.schemas import PaymentRow
+from app.services.calendar_store import load_calendars
 from app.services.settlement_calendar import (
     DEFAULT_WEEKEND_DAYS,
+    HolidayCalendar,
     RuleType,
+    SettlementCalendarError,
     SettlementRule,
     SettlementStatus,
     days_overdue,
-    expected_settlement_date,
+    explain_settlement,
     resolve_status,
 )
 
@@ -76,9 +79,14 @@ class CalendarDay:
     cells: list[CalendarProviderCell]
 
 
-def load_rules(session: Session, weekend_days: frozenset[int] = DEFAULT_WEEKEND_DAYS
-               ) -> dict[str, SettlementRule]:
-    """All stored provider rules, keyed by provider."""
+def load_rules(
+    session: Session,
+    weekend_days: frozenset[int] = DEFAULT_WEEKEND_DAYS,
+    calendars: dict[str, HolidayCalendar] | None = None,
+) -> dict[str, SettlementRule]:
+    """All stored provider rules, keyed by provider, with their calendars attached."""
+    if calendars is None:
+        calendars = load_calendars(session)
     rules: dict[str, SettlementRule] = {}
     for row in session.scalars(select(ProviderRule).order_by(ProviderRule.provider)).all():
         rules[row.provider] = SettlementRule(
@@ -86,24 +94,38 @@ def load_rules(session: Session, weekend_days: frozenset[int] = DEFAULT_WEEKEND_
             offset_days=row.offset_days,
             rule_type=RuleType(row.rule_type),
             weekend_days=weekend_days,
+            # A dangling code cannot happen through the app (deletion of a used
+            # calendar is refused); if it does, fall back to weekends only.
+            calendar=calendars.get(row.calendar_code) if row.calendar_code else None,
         )
     return rules
 
 
 def upsert_rule(
-    session: Session, provider: str, offset_days: int, rule_type: RuleType
+    session: Session,
+    provider: str,
+    offset_days: int,
+    rule_type: RuleType,
+    calendar_code: str | None = None,
 ) -> ProviderRule:
     """Create or update the rule for one provider (rules survive restarts)."""
     provider = provider.strip()
+    calendar_code = (calendar_code or "").strip() or None
+    if calendar_code is not None and calendar_code not in load_calendars(session):
+        raise SettlementCalendarError(f"unknown calendar: {calendar_code}")
     record = session.scalar(select(ProviderRule).where(ProviderRule.provider == provider))
     if record is None:
         record = ProviderRule(
-            provider=provider, offset_days=offset_days, rule_type=rule_type.value
+            provider=provider,
+            offset_days=offset_days,
+            rule_type=rule_type.value,
+            calendar_code=calendar_code,
         )
         session.add(record)
     else:
         record.offset_days = offset_days
         record.rule_type = rule_type.value
+        record.calendar_code = calendar_code
     session.commit()
     return record
 
@@ -168,7 +190,8 @@ def build_rows(
             )
             continue
 
-        expected = expected_settlement_date(payment.payment_date, rule)
+        explanation = explain_settlement(payment.payment_date, rule)
+        expected = explanation.expected_date
         actual = settlement.settlement_date if settlement else None
         status = resolve_status(expected, actual, as_of_date)
         rows.append(
@@ -179,7 +202,10 @@ def build_rows(
                 amount=payment.amount,
                 currency=payment.currency,
                 rule_label=rule.label,
+                calendar_code=rule.calendar.code if rule.calendar else None,
+                calendar_name=rule.calendar.name if rule.calendar else None,
                 expected_settlement_date=expected,
+                explanation=explanation,
                 settlement_id=settlement.settlement_id if settlement else None,
                 actual_settlement_date=actual,
                 settled_amount=settlement.amount if settlement else None,
@@ -189,6 +215,16 @@ def build_rows(
             )
         )
     return rows
+
+
+def calendar_warnings(rows: list[PaymentRow]) -> list[str]:
+    """Distinct holiday-coverage warnings across all rows (for a banner)."""
+    seen: dict[str, None] = {}
+    for row in rows:
+        if row.explanation is not None:
+            for warning in row.explanation.warnings:
+                seen.setdefault(warning, None)
+    return list(seen)
 
 
 def filter_rows(rows: list[PaymentRow], selected: str) -> list[PaymentRow]:

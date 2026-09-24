@@ -21,6 +21,9 @@ OVERDUE_COLUMNS: tuple[str, ...] = (
     "expected_settlement_date",
     "days_overdue",
     "status",
+    # Appended in v0.2 so position-based consumers of the v0.1 layout keep working.
+    "calendar",
+    "explanation",
 )
 
 ALL_COLUMNS: tuple[str, ...] = (
@@ -35,6 +38,8 @@ ALL_COLUMNS: tuple[str, ...] = (
     "settlement_id",
     "days_overdue",
     "status",
+    "calendar",
+    "explanation",
 )
 
 
@@ -62,6 +67,8 @@ def overdue_csv(rows: list[PaymentRow]) -> str:
                 _iso(row.expected_settlement_date),
                 row.days_overdue,
                 row.status.value if row.status else "",
+                row.calendar_code or "",
+                row.explanation_text,
             ]
         )
     return buffer.getvalue()
@@ -97,6 +104,8 @@ def all_rows_xlsx(rows: list[PaymentRow]) -> bytes:
                 row.settlement_id or "",
                 row.days_overdue,
                 row.status.value if row.status else "NO_RULE",
+                row.calendar_code or "",
+                row.explanation_text,
             ]
         )
         status = row.status.value if row.status else ""
@@ -108,7 +117,9 @@ def all_rows_xlsx(rows: list[PaymentRow]) -> bytes:
                 cell.fill = late_fill
 
     for column, width in zip(
-        "ABCDEFGHIJK", (16, 12, 14, 12, 10, 22, 22, 20, 18, 13, 14), strict=False
+        "ABCDEFGHIJKLM",
+        (16, 12, 14, 12, 10, 22, 22, 20, 18, 13, 14, 12, 70),
+        strict=False,
     ):
         sheet.column_dimensions[column].width = width
     sheet.freeze_panes = "A2"
