@@ -21,9 +21,9 @@ DEMO_DIR = REPO_ROOT / "demo-data"
 OUT_DIR = REPO_ROOT / "docs" / "screenshots"
 
 RULES = (
-    ("PSP_A", 2, "BUSINESS_DAYS"),
-    ("PSP_B", 1, "BUSINESS_DAYS"),
-    ("PSP_C", 3, "CALENDAR_DAYS"),
+    ("PSP_A", 2, "BUSINESS_DAYS", "AE"),
+    ("PSP_B", 1, "BUSINESS_DAYS", ""),
+    ("PSP_C", 3, "CALENDAR_DAYS", ""),
 )
 
 PAGES = (
@@ -31,17 +31,24 @@ PAGES = (
     ("/?status=overdue", "overdue.png", 1360, 1000),
     ("/calendar", "calendar.png", 1360, 900),
     ("/rules", "rules.png", 1360, 620),
-    ("/payments/pay_0178", "payment-detail.png", 1360, 620),
+    ("/payments/pay_0178", "payment-detail.png", 1360, 900),
+    ("/payments/pay_0021", "holiday-explanation.png", 1360, 900),
+    ("/calendars/AE", "holiday-calendar.png", 1360, 1000),
 )
 
 
 def seed(base_url: str) -> None:
     with httpx.Client(base_url=base_url, timeout=60.0, follow_redirects=True) as client:
         client.post("/reset", data={"include_rules": "1"})
-        for provider, offset, rule_type in RULES:
+        for provider, offset, rule_type, calendar_code in RULES:
             client.post(
                 "/rules",
-                data={"provider": provider, "offset_days": offset, "rule_type": rule_type},
+                data={
+                    "provider": provider,
+                    "offset_days": offset,
+                    "rule_type": rule_type,
+                    "calendar_code": calendar_code,
+                },
             )
         for kind, filename in (("payments", "payments.csv"), ("settlements", "settlements.csv")):
             path = DEMO_DIR / filename

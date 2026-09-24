@@ -22,14 +22,19 @@ SETTLEMENTS_CSV = (
 
 
 def configure_rules(client: TestClient) -> None:
-    for provider, offset, rule_type in (
-        ("PSP_A", 2, "BUSINESS_DAYS"),
-        ("PSP_B", 1, "BUSINESS_DAYS"),
-        ("PSP_C", 3, "CALENDAR_DAYS"),
+    for provider, offset, rule_type, calendar_code in (
+        ("PSP_A", 2, "BUSINESS_DAYS", "AE"),
+        ("PSP_B", 1, "BUSINESS_DAYS", ""),
+        ("PSP_C", 3, "CALENDAR_DAYS", ""),
     ):
         response = client.post(
             "/rules",
-            data={"provider": provider, "offset_days": offset, "rule_type": rule_type},
+            data={
+                "provider": provider,
+                "offset_days": offset,
+                "rule_type": rule_type,
+                "calendar_code": calendar_code,
+            },
             follow_redirects=False,
         )
         assert response.status_code == 303
